@@ -82,5 +82,70 @@ class _MapPageState extends State<MapPage> {
         )
       }
   }
+
+  void stopMeasurement() {
+    positionStream?.cancel();
+    positionStream = null;
+    setState(() {
+      isMeasuring = false;
+      //routePoints.clear();
+    });
+    print('Pomiar został zakończony');
+    print('Liczba zapisanych punktów: ${routePoints.length}');
+  }
+
+  void resetMasurement() {
+    positionStream?.cancel();
+    positionStream = null;
+    setState(() {
+      isMeasuring = false;
+      routePoints.clear();
+    });
+    print('Pomiar i trasa zostały zrestartowane');
+  }
+
+  Future<void> saveMeasurement() async {
+    if (routePoints.length < 2) {
+      ScaffoldMessenger.of(context,).showSnackBar(const SnackBar(content: Text('Brak trasy do zapisania')));
+      return;
+    }
+
+    final geoJson = {
+      "type" : "Feature",
+      "properties" : {
+        "created_at" : DateTime.now().toIso8601String(),
+        "points_count" : routePoints.length,
+        "points" : routePoints.map((position) {
+          return {
+            "latitude": position.latitude,
+            "longitude": position.longitude,
+            "timestamp": position.timestamp?.toIso8601String(),
+            "accuracy": position.accuracy,
+            "altitude": position.altitude,
+            "speed": position.speed,
+          };
+        }).toList()
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": routePoints.map((position) {
+          return [position.longitude, position.latitude];
+        }).toList(),
+      }
+   };
+   
+   final directory = await getApplicationDocumentsDirectory();
+   final timestamp = DateTime.now().toIso8601String()
+   .replaceAll(':', "-")
+   .replaceAll('.', '-');
+
+   final file = File('${directory.path}/trasa_$timestamp.geojson');
+
+   await file.writeAsString(jsonEncode(geoJson));
+
+   if(!mounted) return;
+
+   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trasa została zapisana\n$(file.path)')));
+  }
 }
 
